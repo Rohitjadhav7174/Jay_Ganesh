@@ -3,7 +3,6 @@ import axios from 'axios';
 import { X, Save, Eye, Printer, Plus, Trash2, Building, User, Truck, CreditCard, Banknote, FileText } from 'lucide-react';
 
 const BillForm = ({ bill, location, onClose, onSubmit }) => {
-  // Initialize with proper default values to avoid undefined
   const [formData, setFormData] = useState({
     billNumber: '',
     date: new Date().toISOString().split('T')[0],
@@ -46,7 +45,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [fetchingDefaults, setFetchingDefaults] = useState(false);
 
-  // Function to generate default date range
   const getDefaultDateRange = () => {
     const currentDate = new Date();
     const currentMonth = currentDate.toLocaleString('en', { month: 'long' });
@@ -60,12 +58,10 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     return `${currentMonth} ${currentYear} - ${nextMonth} ${nextMonthYear}`;
   };
 
-  // Safe value getter to prevent undefined values
   const getSafeValue = (value, defaultValue = '') => {
     return value ?? defaultValue;
   };
 
-  // Fetch location defaults when location changes or for new bills
   useEffect(() => {
     const fetchLocationDefaults = async () => {
       if (!bill) {
@@ -119,7 +115,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
 
   useEffect(() => {
     if (bill) {
-      // For editing, use the bill data directly with safe values
       setFormData({
         billNumber: getSafeValue(bill.billNumber),
         date: bill.date ? bill.date.split('T')[0] : new Date().toISOString().split('T')[0],
@@ -166,7 +161,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
             }]
       });
     } else {
-      // For new bills, generate bill number
       const year = new Date().getFullYear();
       const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       setFormData(prev => ({
@@ -327,8 +321,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
         ...totals
       };
 
-      console.log('Submitting bill data:', submitData);
-
       if (bill) {
         await axios.put(
           `http://localhost:5001/api/bills/${bill._id}`,
@@ -358,51 +350,97 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
 
   const totals = calculateTotals();
 
-  const numberToWords = (num) => {
-    if (num === 0) return 'zero rupees only';
+const numberToWords = (num) => {
+  // Handle decimal numbers
+  const integerPart = Math.floor(num);
+  const decimalPart = Math.round((num - integerPart) * 100);
+  
+  if (integerPart === 0 && decimalPart === 0) return 'Zero rupees only';
+
+  const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+  const teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+  const convertBelowHundred = (n) => {
+    if (n === 0) return '';
+    if (n < 10) return ones[n];
+    if (n < 20) return teens[n - 10];
+    const ten = Math.floor(n / 10);
+    const one = n % 10;
+    return tens[ten] + (one > 0 ? ' ' + ones[one] : '');
+  };
+
+  const convertBelowThousand = (n) => {
+    if (n === 0) return '';
     
-    const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
-    const teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    const hundred = Math.floor(n / 100);
+    const remainder = n % 100;
     
     let words = '';
-    
-    if (num >= 100000) {
-      const lakhs = Math.floor(num / 100000);
-      if (lakhs > 0) {
-        words += numberToWords(lakhs) + ' lakh ';
-      }
-      num %= 100000;
+    if (hundred > 0) {
+      words += ones[hundred] + ' hundred';
     }
-    
-    if (num >= 1000) {
-      const thousands = Math.floor(num / 1000);
-      if (thousands > 0) {
-        words += numberToWords(thousands) + ' thousand ';
-      }
-      num %= 1000;
+    if (remainder > 0) {
+      if (hundred > 0) words += ' ';
+      words += convertBelowHundred(remainder);
     }
-    
-    if (num >= 100) {
-      words += ones[Math.floor(num / 100)] + ' hundred ';
-      num %= 100;
-    }
-    
-    if (num > 0) {
-      if (num < 10) {
-        words += ones[num] + ' ';
-      } else if (num < 20) {
-        words += teens[num - 10] + ' ';
-      } else {
-        words += tens[Math.floor(num / 10)] + ' ';
-        if (num % 10 > 0) {
-          words += ones[num % 10] + ' ';
-        }
-      }
-    }
-    
-    return words.trim() + ' rupees only';
+    return words;
   };
+
+  const convertNumber = (n) => {
+    if (n === 0) return 'zero';
+
+    let words = '';
+    
+    // Crores (10,000,000)
+    if (n >= 10000000) {
+      const crores = Math.floor(n / 10000000);
+      words += convertBelowThousand(crores) + ' crore ';
+      n %= 10000000;
+    }
+    
+    // Lakhs (100,000)
+    if (n >= 100000) {
+      const lakhs = Math.floor(n / 100000);
+      words += convertBelowThousand(lakhs) + ' lakh ';
+      n %= 100000;
+    }
+    
+    // Thousands (1,000)
+    if (n >= 1000) {
+      const thousands = Math.floor(n / 1000);
+      words += convertBelowThousand(thousands) + ' thousand ';
+      n %= 1000;
+    }
+    
+    // Hundreds, Tens and Ones
+    if (n > 0) {
+      words += convertBelowThousand(n);
+    }
+    
+    return words.trim();
+  };
+
+  let result = '';
+
+  // Convert integer part (rupees)
+  if (integerPart > 0) {
+    result = convertNumber(integerPart) + ' rupees';
+  }
+
+  // Convert decimal part (paise)
+  if (decimalPart > 0) {
+    if (integerPart > 0) {
+      result += ' and ';
+    }
+    result += convertNumber(decimalPart) + ' paise';
+  }
+
+  result += ' only';
+
+  // Capitalize first letter
+  return result.charAt(0).toUpperCase() + result.slice(1);
+};
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -423,7 +461,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     return `${getOrdinal(day)} ${month} ${year}`;
   };
 
-  // Fixed Print Function
   const handlePrint = () => {
     const printContent = document.getElementById('bill-preview');
     
@@ -524,6 +561,31 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
                 page-break-inside: avoid;
               }
             }
+            @media (max-width: 768px) {
+              body {
+                margin: 10px;
+                font-size: 10px;
+              }
+              .preview-table th,
+              .preview-table td {
+                padding: 4px 6px;
+                font-size: 10px;
+              }
+              .preview-header h1 {
+                font-size: 20px;
+              }
+            }
+            @media (max-width: 480px) {
+              body {
+                margin: 5px;
+                font-size: 8px;
+              }
+              .preview-table th,
+              .preview-table td {
+                padding: 2px 4px;
+                font-size: 8px;
+              }
+            }
           </style>
         </head>
         <body>
@@ -534,213 +596,18 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
 
     printWindow.document.close();
     
-    // Wait for content to load then print
     setTimeout(() => {
       printWindow.print();
     }, 250);
   };
 
- const ResponsiveStyles = () => (
-    <style>
-      {`
-        /* Responsive Bill Form Styles */
-        @media (max-width: 1200px) {
-          .form-container-responsive {
-            width: 95% !important;
-            margin: 0 auto;
-            padding: 1rem;
-          }
-        }
-        
-        @media (max-width: 1024px) {
-          .form-container-responsive {
-            width: 98% !important;
-            padding: 0.5rem;
-          }
-          
-          .form-header-responsive {
-            padding: 1.5rem !important;
-          }
-          
-          .header-content-responsive {
-            flex-direction: column;
-            gap: 1rem;
-            align-items: flex-start !important;
-          }
-          
-          .header-actions-responsive {
-            width: 100%;
-            justify-content: space-between;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .form-container-responsive {
-            width: 100% !important;
-            padding: 0.25rem;
-          }
-          
-          .form-header-responsive {
-            padding: 1rem !important;
-          }
-          
-          .header-title-responsive h1 {
-            font-size: 1.5rem !important;
-          }
-          
-          .form-section-responsive {
-            padding: 1rem !important;
-          }
-          
-          .section-header-responsive {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-          }
-          
-          .form-grid-responsive {
-            grid-template-columns: 1fr !important;
-            gap: 1rem;
-          }
-          
-          .item-grid-responsive {
-            grid-template-columns: 1fr !important;
-          }
-          
-          .item-header-responsive {
-            flex-direction: column;
-            gap: 1rem;
-            align-items: flex-start;
-          }
-          
-          .item-header-responsive .btn {
-            align-self: flex-end;
-          }
-          
-          .form-actions-responsive {
-            flex-direction: column;
-            gap: 0.75rem;
-          }
-          
-          .form-actions-responsive .btn {
-            width: 100%;
-          }
-          
-          .summary-grid-responsive {
-            max-width: 100% !important;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .form-header-responsive {
-            padding: 0.75rem !important;
-          }
-          
-          .header-title-responsive h1 {
-            font-size: 1.25rem !important;
-          }
-          
-          .form-section-responsive {
-            padding: 0.75rem !important;
-          }
-          
-          .section-header-responsive h2 {
-            font-size: 1.1rem !important;
-          }
-          
-          .item-card-responsive {
-            padding: 0.75rem !important;
-          }
-          
-          .form-input-responsive {
-            padding: 0.75rem !important;
-            font-size: 14px;
-          }
-          
-          .btn-responsive {
-            padding: 0.75rem 1rem !important;
-            font-size: 14px;
-          }
-        }
-        
-        /* Preview Responsive Styles */
-        @media (max-width: 768px) {
-          .preview-container-responsive {
-            padding: 1rem !important;
-          }
-          
-          .preview-actions-responsive {
-            flex-direction: column;
-            gap: 1rem;
-          }
-          
-          .preview-actions-responsive .btn {
-            width: 100%;
-          }
-          
-          .preview-table-responsive {
-            font-size: 10px;
-          }
-          
-          .preview-table-responsive th,
-          .preview-table-responsive td {
-            padding: 4px 6px;
-          }
-          
-          .bank-details-responsive,
-          .amount-words-responsive {
-            font-size: 10px;
-            padding: 0.5rem;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .preview-container-responsive {
-            padding: 0.5rem !important;
-          }
-          
-          .preview-table-responsive {
-            font-size: 8px;
-          }
-          
-          .preview-table-responsive th,
-          .preview-table-responsive td {
-            padding: 2px 4px;
-          }
-          
-          .preview-header-responsive h1 {
-            font-size: 18px !important;
-          }
-        }
-        
-        /* Touch-friendly improvements */
-        @media (max-width: 768px) {
-          .btn-responsive,
-          .form-input-responsive,
-          .tab-responsive {
-            min-height: 44px;
-          }
-        }
-        
-        /* Print optimization */
-        @media print {
-          .form-container-responsive,
-          .preview-actions-responsive {
-            display: none !important;
-          }
-        }
-      `}
-    </style>
-  );
-
-  // Preview Component with responsive classes
   const BillPreview = () => (
     <div id="bill-preview" className="bill-preview">
-      <div className="preview-header preview-header-responsive">
+      <div className="preview-header">
         <h1>TAX INVOICE</h1>
       </div>
       
-      <table className="preview-table header-table preview-table-responsive">
+      <table className="preview-table header-table">
         <tbody>
           <tr>
             <td width="50%" className="supplier-info">
@@ -783,18 +650,24 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
           </tr>
           <tr>
             <td></td>
-            <td>Despatched through: {getSafeValue(formData.dispatchedThrough, 'N/A')}</td>
-            <td>Destination: {getSafeValue(formData.destination)}</td>
+  <td>
+    Despatched through: <strong>Goods Vehicle</strong>
+    {getSafeValue(formData.dispatchedThrough) && ` - ${getSafeValue(formData.dispatchedThrough)}`}
+  </td>         
+     <td>Destination: {getSafeValue(formData.destination)}</td>
           </tr>
           <tr>
             <td></td>
-            <td>Terms of Delivery</td>
+            <td>Terms of Delivery: <strong>Direct To School</strong>
+
+
+            </td>
             <td></td>
           </tr>
         </tbody>
       </table>
 
-      <table className="preview-table items-table preview-table-responsive">
+      <table className="preview-table items-table">
         <thead>
           <tr>
             <th>Sl No.</th>
@@ -841,12 +714,12 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
         </tbody>
       </table>
 
-      <div className="amount-words amount-words-responsive">
+      <div className="amount-words">
         <strong>Amount Chargeable (in words)</strong><br/>
         {numberToWords(totals.totalAmount)}
       </div>
 
-      <div className="bank-details bank-details-responsive">
+      <div className="bank-details">
         <strong>Bank Name: {getSafeValue(formData.bankDetails.name)}</strong><br/>
         <strong>A/c No.: {getSafeValue(formData.bankDetails.accountNumber)}</strong><br/>
         <strong>Branch & IFS Code: {getSafeValue(formData.bankDetails.branch)}</strong><br/>
@@ -864,425 +737,417 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
 
   if (showPreview) {
     return (
-      <>
-        <ResponsiveStyles />
-        <div className="preview-container preview-container-responsive">
-          <div className="preview-actions preview-actions-responsive">
-            <button className="btn btn-outline btn-responsive" onClick={() => setShowPreview(false)}>
-              <X size={18} className="mr-2" />
-              Back to Edit
-            </button>
-            <button className="btn btn-primary btn-responsive" onClick={handlePrint}>
-              <Printer size={18} className="mr-2" />
-              Print Bill
-            </button>
-          </div>
-          <BillPreview />
+      <div className="preview-container">
+        <div className="preview-actions">
+          <button className="btn btn-outline" onClick={() => setShowPreview(false)}>
+            <X size={18} className="mr-2" />
+            Back to Edit
+          </button>
+          <button className="btn btn-primary" onClick={handlePrint}>
+            <Printer size={18} className="mr-2" />
+            Print Bill
+          </button>
         </div>
-      </>
+        <BillPreview />
+      </div>
     );
   }
 
   return (
-    <>
-      <ResponsiveStyles />
-      <div className="form-container form-container-responsive" style={{width: 1100}}>
-        <div className="form-header form-header-responsive">
-          <div className="header-content header-content-responsive">
-            <div className="header-title header-title-responsive">
-              <FileText className="header-icon" />
-              <div>
-                <h1>{bill ? 'Edit Bill' : 'Create New Bill'}</h1>
-                <p>Fill in the details below to generate an invoice</p>
-                {fetchingDefaults && (
-                  <p style={{color: '#666', fontSize: '14px'}}>Loading {location} defaults...</p>
-                )}
-              </div>
+    <div className="form-container">
+      <div className="form-header">
+        <div className="header-content">
+          <div className="header-title">
+            <FileText className="header-icon" />
+            <div>
+              <h1>{bill ? 'Edit Bill' : 'Create New Bill'}</h1>
+              <p>Fill in the details below to generate an invoice</p>
+              {fetchingDefaults && (
+                <p className="loading-text">Loading {location} defaults...</p>
+              )}
             </div>
-            <div className="header-actions header-actions-responsive">
-              <button 
-                className="btn btn-secondary btn-responsive"
-                onClick={() => setShowPreview(true)}
-              >
-                <Eye size={18} className="mr-2" />
-                Preview
-              </button>
-              <button 
-                className="btn btn-outline btn-responsive"
-                onClick={onClose}
-              >
-                <X size={18} />
-              </button>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => setShowPreview(true)}
+            >
+              <Eye size={18} className="mr-2" />
+              Preview
+            </button>
+            <button 
+              className="btn btn-outline"
+              onClick={onClose}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error-message">
+          <div className="error-content">
+            <span className="error-icon">⚠️</span>
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="form-content">
+        {/* Basic Information */}
+        <div className="form-section">
+          <div className="section-header">
+            <Building className="section-icon" />
+            <h2>Basic Information</h2>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Bill Number *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.billNumber)}
+                onChange={(e) => setFormData({ ...formData, billNumber: e.target.value })}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Date *</label>
+              <input
+                type="date"
+                value={getSafeValue(formData.date)}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Date Range *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.dateRange)}
+                onChange={(e) => handleDateRangeChange(e.target.value)}
+                placeholder="e.g., July 2025 - August 2025"
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Location</label>
+              <input 
+                type="text" 
+                value={getSafeValue(formData.location)} 
+                disabled 
+                className="form-input disabled"
+              />
             </div>
           </div>
         </div>
 
-        {error && (
-          <div className="error-message">
-            <div className="error-content">
-              <span className="error-icon">⚠️</span>
-              <span>{error}</span>
+        {/* Supplier Information */}
+        <div className="form-section">
+          <div className="section-header">
+            <Building className="section-icon" />
+            <h2>Supplier Information</h2>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Supplier Name *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.supplier.name)}
+                onChange={(e) => handleSupplierChange('name', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group full-width">
+              <label>Supplier Address *</label>
+              <textarea
+                value={getSafeValue(formData.supplier.address)}
+                onChange={(e) => handleSupplierChange('address', e.target.value)}
+                required
+                className="form-input"
+                rows={3}
+              />
+            </div>
+            <div className="form-group">
+              <label>Supplier GSTIN</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.supplier.gstin)}
+                onChange={(e) => handleSupplierChange('gstin', e.target.value)}
+                className="form-input"
+              />
             </div>
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleSubmit} className="form-content">
-          {/* Basic Information */}
-          <div className="form-section form-section-responsive">
-            <div className="section-header section-header-responsive">
-              <Building className="section-icon" />
-              <h2>Basic Information</h2>
+        {/* Buyer Information */}
+        <div className="form-section">
+          <div className="section-header">
+            <User className="section-icon" />
+            <h2>Buyer Information</h2>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Buyer Name *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.buyer.name)}
+                onChange={(e) => handleBuyerChange('name', e.target.value)}
+                required
+                className="form-input"
+              />
             </div>
-            <div className="form-grid form-grid-responsive">
-              <div className="form-group">
-                <label>Bill Number *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.billNumber)}
-                  onChange={(e) => setFormData({ ...formData, billNumber: e.target.value })}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group">
-                <label>Date *</label>
-                <input
-                  type="date"
-                  value={getSafeValue(formData.date)}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group">
-                <label>Date Range *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.dateRange)}
-                  onChange={(e) => handleDateRangeChange(e.target.value)}
-                  placeholder="e.g., July 2025 - August 2025"
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group">
-                <label>Location</label>
-                <input 
-                  type="text" 
-                  value={getSafeValue(formData.location)} 
-                  disabled 
-                  className="form-input disabled form-input-responsive"
-                />
-              </div>
+            <div className="form-group full-width">
+              <label>Buyer Address *</label>
+              <textarea
+                value={getSafeValue(formData.buyer.address)}
+                onChange={(e) => handleBuyerChange('address', e.target.value)}
+                required
+                className="form-input"
+                rows={3}
+              />
+            </div>
+            <div className="form-group">
+              <label>PAN Number *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.buyer.pan)}
+                onChange={(e) => handleBuyerChange('pan', e.target.value)}
+                required
+                className="form-input"
+              />
             </div>
           </div>
+        </div>
 
-          {/* Supplier Information */}
-          <div className="form-section form-section-responsive">
-            <div className="section-header section-header-responsive">
-              <Building className="section-icon" />
-              <h2>Supplier Information</h2>
+        {/* Additional Information */}
+        <div className="form-section">
+          <div className="section-header">
+            <Truck className="section-icon" />
+            <h2>Additional Information</h2>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Mode of Payment *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.modeOfPayment)}
+                onChange={(e) => handleInputChange('modeOfPayment', e.target.value)}
+                required
+                className="form-input"
+              />
             </div>
-            <div className="form-grid form-grid-responsive">
-              <div className="form-group">
-                <label>Supplier Name *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.supplier.name)}
-                  onChange={(e) => handleSupplierChange('name', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group full-width">
-                <label>Supplier Address *</label>
-                <textarea
-                  value={getSafeValue(formData.supplier.address)}
-                  onChange={(e) => handleSupplierChange('address', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                  rows={3}
-                  style={{ resize: 'vertical', minHeight: '80px' }}
-                />
-              </div>
-              <div className="form-group">
-                <label>Supplier GSTIN</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.supplier.gstin)}
-                  onChange={(e) => handleSupplierChange('gstin', e.target.value)}
-                  className="form-input form-input-responsive"
-                />
-              </div>
+            <div className="form-group">
+              <label>Dispatched Through</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.dispatchedThrough)}
+                onChange={(e) => handleInputChange('dispatchedThrough', e.target.value)}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Destination *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.destination)}
+                onChange={(e) => handleInputChange('destination', e.target.value)}
+                required
+                className="form-input"
+              />
             </div>
           </div>
+        </div>
 
-          {/* Buyer Information */}
-          <div className="form-section form-section-responsive">
-            <div className="section-header section-header-responsive">
-              <User className="section-icon" />
-              <h2>Buyer Information</h2>
-            </div>
-            <div className="form-grid form-grid-responsive">
-              <div className="form-group">
-                <label>Buyer Name *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.buyer.name)}
-                  onChange={(e) => handleBuyerChange('name', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group full-width">
-                <label>Buyer Address *</label>
-                <textarea
-                  value={getSafeValue(formData.buyer.address)}
-                  onChange={(e) => handleBuyerChange('address', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                  rows={3}
-                  style={{ resize: 'vertical', minHeight: '80px' }}
-                />
-              </div>
-              <div className="form-group">
-                <label>PAN Number *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.buyer.pan)}
-                  onChange={(e) => handleBuyerChange('pan', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-            </div>
+        {/* Items Section */}
+        <div className="form-section">
+          <div className="section-header">
+            <FileText className="section-icon" />
+            <h2>Line Items</h2>
           </div>
-
-          {/* Additional Information */}
-          <div className="form-section form-section-responsive">
-            <div className="section-header section-header-responsive">
-              <Truck className="section-icon" />
-              <h2>Additional Information</h2>
-            </div>
-            <div className="form-grid form-grid-responsive">
-              <div className="form-group">
-                <label>Mode of Payment *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.modeOfPayment)}
-                  onChange={(e) => handleInputChange('modeOfPayment', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group">
-                <label>Dispatched Through</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.dispatchedThrough)}
-                  onChange={(e) => handleInputChange('dispatchedThrough', e.target.value)}
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group">
-                <label>Destination *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.destination)}
-                  onChange={(e) => handleInputChange('destination', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Items Section */}
-          <div className="form-section form-section-responsive">
-            <div className="section-header section-header-responsive">
-              <FileText className="section-icon" />
-              <h2>Line Items</h2>
-            </div>
-            <div className="items-container">
-              {formData.items.map((item, index) => (
-                <div key={index} className="item-card item-card-responsive">
-                  <div className="item-header item-header-responsive">
-                    <h3>Item {index + 1}</h3>
-                    {formData.items.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm btn-responsive"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 size={16} />
-                        Remove
-                      </button>
-                    )}
+          <div className="items-container">
+            {formData.items.map((item, index) => (
+              <div key={index} className="item-card">
+                <div className="item-header">
+                  <h3>Item {index + 1}</h3>
+                  {formData.items.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() => removeItem(index)}
+                    >
+                      <Trash2 size={16} />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="item-grid">
+                  <div className="form-group">
+                    <label>Description *</label>
+                    <input
+                      type="text"
+                      value={getSafeValue(item.description)}
+                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                      required
+                      className="form-input"
+                    />
                   </div>
-                  <div className="item-grid item-grid-responsive">
-                    <div className="form-group">
-                      <label>Description *</label>
-                      <input
-                        type="text"
-                        value={getSafeValue(item.description)}
-                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        required
-                        className="form-input form-input-responsive"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>HSN/SAC</label>
-                      <input
-                        type="text"
-                        value={getSafeValue(item.hsnSac)}
-                        onChange={(e) => handleItemChange(index, 'hsnSac', e.target.value)}
-                        className="form-input form-input-responsive"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>GST Rate</label>
-                      <input
-                        type="text"
-                        value={getSafeValue(item.gstRate)}
-                        onChange={(e) => handleItemChange(index, 'gstRate', e.target.value)}
-                        className="form-input form-input-responsive"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Quantity *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={getSafeValue(item.quantity, 0)}
-                        onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                        required
-                        className="form-input form-input-responsive"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Rate (₹) *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={getSafeValue(item.rate, 0)}
-                        onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
-                        required
-                        className="form-input form-input-responsive"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Unit</label>
-                      <select
-                        value={getSafeValue(item.unit, 'KG')}
-                        onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                        className="form-input form-input-responsive"
-                      >
-                        <option value="KG">KG</option>
-                        <option value="BAG">BAG</option>
-                        <option value="PIECE">PIECE</option>
-                        <option value="LITRE">LITRE</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Amount</label>
-                      <div className="amount-display">
-                        ₹{getSafeValue(item.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </div>
+                  <div className="form-group">
+                    <label>HSN/SAC</label>
+                    <input
+                      type="text"
+                      value={getSafeValue(item.hsnSac)}
+                      onChange={(e) => handleItemChange(index, 'hsnSac', e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>GST Rate</label>
+                    <input
+                      type="text"
+                      value={getSafeValue(item.gstRate)}
+                      onChange={(e) => handleItemChange(index, 'gstRate', e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Quantity *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={getSafeValue(item.quantity, 0)}
+                      onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Rate (₹) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={getSafeValue(item.rate, 0)}
+                      onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Unit</label>
+                    <select
+                      value={getSafeValue(item.unit, 'KG')}
+                      onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                      className="form-input"
+                    >
+                      <option value="KG">KG</option>
+                      <option value="BAG">BAG</option>
+                      <option value="PIECE">PIECE</option>
+                      <option value="LITRE">LITRE</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Amount</label>
+                    <div className="amount-display">
+                      ₹{getSafeValue(item.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </div>
                   </div>
                 </div>
-              ))}
-              <button
-                type="button"
-                className="btn btn-outline full-width btn-responsive"
-                onClick={addItem}
-              >
-                <Plus size={18} className="mr-2" />
-                Add New Item
-              </button>
-            </div>
-          </div>
-
-          {/* Bank Details */}
-          <div className="form-section form-section-responsive">
-            <div className="section-header section-header-responsive">
-              <CreditCard className="section-icon" />
-              <h2>Bank Details</h2>
-            </div>
-            <div className="form-grid form-grid-responsive">
-              <div className="form-group">
-                <label>Bank Name *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.bankDetails.name)}
-                  onChange={(e) => handleBankDetailsChange('name', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
               </div>
-              <div className="form-group">
-                <label>Account Number *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.bankDetails.accountNumber)}
-                  onChange={(e) => handleBankDetailsChange('accountNumber', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group">
-                <label>Branch *</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.bankDetails.branch)}
-                  onChange={(e) => handleBankDetailsChange('branch', e.target.value)}
-                  required
-                  className="form-input form-input-responsive"
-                />
-              </div>
-              <div className="form-group">
-                <label>IFSC Code</label>
-                <input
-                  type="text"
-                  value={getSafeValue(formData.bankDetails.ifsc)}
-                  onChange={(e) => handleBankDetailsChange('ifsc', e.target.value)}
-                  className="form-input form-input-responsive"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div className="form-section summary-section form-section-responsive">
-            <div className="section-header section-header-responsive">
-              <Banknote className="section-icon" />
-              <h2>Summary</h2>
-            </div>
-            <div className="summary-grid summary-grid-responsive">
-              <div className="summary-item">
-                <span className="summary-label">Subtotal:</span>
-                <span className="summary-value">₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="summary-item total">
-                <span className="summary-label">Total Amount:</span>
-                <span className="summary-value">₹{totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Form Actions */}
-          <div className="form-actions form-actions-responsive">
-            <button type="button" className="btn btn-outline btn-responsive" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary btn-responsive" disabled={loading || fetchingDefaults}>
-              <Save size={18} className="mr-2" />
-              {loading ? 'Saving...' : (fetchingDefaults ? 'Loading...' : 'Save Bill')}
+            ))}
+            <button
+              type="button"
+              className="btn btn-outline full-width"
+              onClick={addItem}
+            >
+              <Plus size={18} className="mr-2" />
+              Add New Item
             </button>
           </div>
-        </form>
-      </div>
-    </>
+        </div>
+
+        {/* Bank Details */}
+        <div className="form-section">
+          <div className="section-header">
+            <CreditCard className="section-icon" />
+            <h2>Bank Details</h2>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Bank Name *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.bankDetails.name)}
+                onChange={(e) => handleBankDetailsChange('name', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Account Number *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.bankDetails.accountNumber)}
+                onChange={(e) => handleBankDetailsChange('accountNumber', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Branch *</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.bankDetails.branch)}
+                onChange={(e) => handleBankDetailsChange('branch', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>IFSC Code</label>
+              <input
+                type="text"
+                value={getSafeValue(formData.bankDetails.ifsc)}
+                onChange={(e) => handleBankDetailsChange('ifsc', e.target.value)}
+                className="form-input"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div className="form-section summary-section">
+          <div className="section-header">
+            <Banknote className="section-icon" />
+            <h2>Summary</h2>
+          </div>
+          <div className="summary-grid">
+            <div className="summary-item">
+              <span className="summary-label">Subtotal:</span>
+              <span className="summary-value">₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="summary-item total">
+              <span className="summary-label">Total Amount:</span>
+              <span className="summary-value">₹{totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="form-actions">
+          <button type="button" className="btn btn-outline" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={loading || fetchingDefaults}>
+            <Save size={18} className="mr-2" />
+            {loading ? 'Saving...' : (fetchingDefaults ? 'Loading...' : 'Save Bill')}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 };
 
