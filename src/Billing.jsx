@@ -29,14 +29,13 @@ const Billing = () => {
         }
       );
       
-      // Handle both response structures for backward compatibility
       const billsData = response.data.bills || response.data;
       console.log(`✅ Received ${billsData.length} bills for ${selectedLocation}`);
       setBills(billsData);
     } catch (error) {
       console.error('Error fetching bills:', error);
       setError(error.response?.data?.message || 'Error fetching bills');
-      setBills([]); // Reset bills on error
+      setBills([]);
     } finally {
       setLoading(false);
     }
@@ -59,7 +58,7 @@ const Billing = () => {
         await axios.delete(`http://localhost:5001/api/bills/${billId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        fetchBills(); // Refresh the list
+        fetchBills();
       } catch (error) {
         console.error('Error deleting bill:', error);
         setError('Error deleting bill');
@@ -75,13 +74,11 @@ const Billing = () => {
   const handleFormSubmit = () => {
     setShowForm(false);
     setEditingBill(null);
-    fetchBills(); // Refresh the list after form submission
+    fetchBills();
   };
 
   const handlePrintBill = (bill) => {
-    // You can implement print functionality here
     console.log('Print bill:', bill);
-    // For now, just open the bill in edit mode which has print functionality
     handleEditBill(bill);
   };
 
@@ -101,7 +98,7 @@ const Billing = () => {
   }
 
   return (
-    <div className="billing" style={{width: 1100}}>
+    <div className="billing">
       <div className="billing-header">
         <div className="header-info">
           <h1>Billing Management</h1>
@@ -125,7 +122,7 @@ const Billing = () => {
             <RefreshCw size={18} className={loading ? 'spinning' : ''} />
             Refresh
           </button>
-          <button className="btn btn-primary createbtn" onClick={handleCreateBill} style={{width: 200}}>
+          <button className="btn btn-primary createbtn" onClick={handleCreateBill}>
             <Plus size={18} style={{ marginRight: '8px' }} />
             Create New Bill
           </button>
