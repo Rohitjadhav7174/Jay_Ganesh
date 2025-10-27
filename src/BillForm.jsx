@@ -323,7 +323,7 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
 
       if (bill) {
         await axios.put(
-          `http://localhost:5001/api/bills/${bill._id}`,
+          `https://jay-ganesh-backend.vercel.app/api/bills/${bill._id}`,
           submitData,
           {
             headers: { Authorization: `Bearer ${token}` }
@@ -331,7 +331,7 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
         );
       } else {
         await axios.post(
-          'http://localhost:5001/api/bills',
+          'https://jay-ganesh-backend.vercel.app/api/bills',
           submitData,
           {
             headers: { Authorization: `Bearer ${token}` }
