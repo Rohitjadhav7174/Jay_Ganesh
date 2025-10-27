@@ -69,7 +69,7 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
         try {
           const token = localStorage.getItem('token');
           const response = await axios.get(
-            `http://localhost:5001/api/location-defaults/${location}`,
+            `https://jay-ganesh-backend.vercel.app/api/location-defaults/${location}`,
             {
               headers: { Authorization: `Bearer ${token}` }
             }
