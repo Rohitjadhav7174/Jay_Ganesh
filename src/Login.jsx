@@ -145,27 +145,6 @@ const Login = ({ onLogin }) => {
               'Login'
             )}
           </button>
-
-          <div className="login-help">
-            <p>First time user?</p>
-            <button 
-              type="button" 
-              className="btn btn-link"
-              onClick={handleCreateDefaultUser}
-              disabled={loading || creatingUser}
-            >
-              {creatingUser ? 'Creating User...' : 'Create Default User (admin/admin123)'}
-            </button>
-            
-            <button 
-              type="button" 
-              className="btn btn-link"
-              onClick={testConnection}
-              style={{ marginTop: '10px', fontSize: '12px' }}
-            >
-              Test Connection
-            </button>
-          </div>
         </div>
       </form>
     </div>
