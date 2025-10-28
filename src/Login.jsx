@@ -10,7 +10,7 @@ const Login = ({ onLogin }) => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [creatingUser, setCreatingUser] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
 
   const handleChange = (e) => {
     setFormData({
@@ -19,62 +19,67 @@ const Login = ({ onLogin }) => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
+  const testConnection = async () => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/login`, formData);
-      
-      if (response.data.token) {
-        onLogin(response.data.token);
-      } else {
-        setError('Invalid response from server');
-      }
+      setDebugInfo('Testing connection...');
+      const response = await axios.get(`${API_BASE_URL}/api/health`);
+      setDebugInfo(`✅ Connection successful: ${response.data.message}`);
     } catch (error) {
-      console.error('Login error:', error);
-      if (error.response?.status === 404) {
-        setError('Login endpoint not found. The server might be restarting.');
-      } else if (error.response?.status === 0) {
-        setError('Cannot connect to server. Please check your internet connection.');
-      } else {
-        setError(error.response?.data?.message || 'Login failed. Please try again.');
-      }
+      setDebugInfo(`❌ Connection failed: ${error.message}`);
+    }
+  };
+
+  const createDefaultUser = async () => {
+    try {
+      setLoading(true);
+      setDebugInfo('Creating default user...');
+      const response = await axios.post(`${API_BASE_URL}/api/create-default-user`);
+      setDebugInfo(`✅ ${response.data.message}`);
+      setFormData({
+        username: 'admin',
+        password: 'admin123'
+      });
+    } catch (error) {
+      setDebugInfo(`❌ Create user failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateDefaultUser = async () => {
-    setCreatingUser(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     setError('');
-    
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/create-default-user`);
-      setFormData({
-        username: 'admin',
-        password: 'admin123'
-      });
-      setError('Default user created successfully! Use username: admin, password: admin123');
-    } catch (error) {
-      console.error('Create user error:', error);
-      if (error.response?.status === 404) {
-        setError('Create user endpoint not found. Please check if the server is running.');
-      } else {
-        setError(error.response?.data?.message || 'Error creating default user');
-      }
-    } finally {
-      setCreatingUser(false);
-    }
-  };
+    setDebugInfo('Attempting login...');
 
-  const testConnection = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/health`);
-      setError(`Connection successful: ${response.data.message}`);
+      const response = await axios.post(`${API_BASE_URL}/api/login`, formData);
+      
+      if (response.data.token) {
+        setDebugInfo('✅ Login successful!');
+        onLogin(response.data.token);
+      } else {
+        setError('Invalid response from server');
+        setDebugInfo('❌ No token in response');
+      }
     } catch (error) {
-      setError(`Connection failed: ${error.message}`);
+      console.error('Login error:', error);
+      let errorMessage = 'Login failed';
+      
+      if (error.code === 'NETWORK_ERROR') {
+        errorMessage = 'Network error - cannot reach server';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Server endpoint not found (404)';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error (500)';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      setError(errorMessage);
+      setDebugInfo(`❌ ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -99,9 +104,15 @@ const Login = ({ onLogin }) => {
         
         <div className="form-content">
           {error && (
-            <div className={`error animated-error ${error.includes('successful') ? 'success' : ''}`}>
+            <div className="error animated-error">
               <span className="error-icon">⚠️</span>
               {error}
+            </div>
+          )}
+
+          {debugInfo && (
+            <div className="debug-info">
+              <small>{debugInfo}</small>
             </div>
           )}
           
@@ -114,7 +125,7 @@ const Login = ({ onLogin }) => {
               onChange={handleChange}
               required
               placeholder="Enter your username"
-              disabled={loading || creatingUser}
+              disabled={loading}
             />
           </div>
           
@@ -127,14 +138,14 @@ const Login = ({ onLogin }) => {
               onChange={handleChange}
               required
               placeholder="Enter your password"
-              disabled={loading || creatingUser}
+              disabled={loading}
             />
           </div>
           
           <button 
             type="submit" 
             className={`btn btn-primary animated-btn ${loading ? 'loading' : ''}`}
-            disabled={loading || creatingUser}
+            disabled={loading}
           >
             {loading ? (
               <>
@@ -145,6 +156,32 @@ const Login = ({ onLogin }) => {
               'Login'
             )}
           </button>
+
+          <div className="login-help">
+            <div className="help-buttons">
+              <button 
+                type="button" 
+                className="btn btn-link"
+                onClick={createDefaultUser}
+                disabled={loading}
+              >
+                Create Default User
+              </button>
+              
+              <button 
+                type="button" 
+                className="btn btn-link"
+                onClick={testConnection}
+                disabled={loading}
+              >
+                Test Connection
+              </button>
+            </div>
+            
+            <div className="default-credentials">
+              <small>Default: admin / admin123</small>
+            </div>
+          </div>
         </div>
       </form>
     </div>
