@@ -22,7 +22,7 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await axios.post('https://jay-ganesh-backend.vercel.app/api/login', formData);
+      const response = await axios.post('https://jay-ganesh-backend.vercel.app/', formData);
       onLogin(response.data.token);
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed');
