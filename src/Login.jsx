@@ -5,11 +5,12 @@ const API_BASE_URL = 'https://jay-ganesh-backend.vercel.app';
 
 const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
-    username: '',
-    password: ''
+    username: 'admin',
+    password: 'admin123'
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -33,7 +34,9 @@ const Login = ({ onLogin }) => {
       }
     } catch (error) {
       console.error('Login error:', error);
-      if (error.response?.status === 0) {
+      if (error.response?.status === 404) {
+        setError('Login endpoint not found. The server might be restarting.');
+      } else if (error.response?.status === 0) {
         setError('Cannot connect to server. Please check your internet connection.');
       } else {
         setError(error.response?.data?.message || 'Login failed. Please try again.');
@@ -44,24 +47,39 @@ const Login = ({ onLogin }) => {
   };
 
   const handleCreateDefaultUser = async () => {
+    setCreatingUser(true);
+    setError('');
+    
     try {
-      setLoading(true);
       const response = await axios.post(`${API_BASE_URL}/api/create-default-user`);
       setFormData({
         username: 'admin',
         password: 'admin123'
       });
-      alert('Default user created! Username: admin, Password: admin123');
+      setError('Default user created successfully! Use username: admin, password: admin123');
     } catch (error) {
-      setError('Error creating default user');
+      console.error('Create user error:', error);
+      if (error.response?.status === 404) {
+        setError('Create user endpoint not found. Please check if the server is running.');
+      } else {
+        setError(error.response?.data?.message || 'Error creating default user');
+      }
     } finally {
-      setLoading(false);
+      setCreatingUser(false);
+    }
+  };
+
+  const testConnection = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/health`);
+      setError(`Connection successful: ${response.data.message}`);
+    } catch (error) {
+      setError(`Connection failed: ${error.message}`);
     }
   };
 
   return (
     <div className="login-container">
-      {/* Animated Background */}
       <div className="animated-bg">
         <div className="shape shape1"></div>
         <div className="shape shape2"></div>
@@ -70,7 +88,6 @@ const Login = ({ onLogin }) => {
       </div>
 
       <form className="login-form animated-form" onSubmit={handleSubmit}>
-        {/* Animated Header */}
         <div className="login-header">
           <div className="company-logo">
             <div className="logo-icon">🚛</div>
@@ -80,10 +97,9 @@ const Login = ({ onLogin }) => {
           <h1 className="company-name">A R Trading Company</h1>
         </div>
         
-        {/* Animated Form Content */}
         <div className="form-content">
           {error && (
-            <div className="error animated-error">
+            <div className={`error animated-error ${error.includes('successful') ? 'success' : ''}`}>
               <span className="error-icon">⚠️</span>
               {error}
             </div>
@@ -98,7 +114,7 @@ const Login = ({ onLogin }) => {
               onChange={handleChange}
               required
               placeholder="Enter your username"
-              disabled={loading}
+              disabled={loading || creatingUser}
             />
           </div>
           
@@ -111,14 +127,14 @@ const Login = ({ onLogin }) => {
               onChange={handleChange}
               required
               placeholder="Enter your password"
-              disabled={loading}
+              disabled={loading || creatingUser}
             />
           </div>
           
           <button 
             type="submit" 
             className={`btn btn-primary animated-btn ${loading ? 'loading' : ''}`}
-            disabled={loading}
+            disabled={loading || creatingUser}
           >
             {loading ? (
               <>
@@ -131,14 +147,23 @@ const Login = ({ onLogin }) => {
           </button>
 
           <div className="login-help">
-            <p>Don't have an account?</p>
+            <p>First time user?</p>
             <button 
               type="button" 
               className="btn btn-link"
               onClick={handleCreateDefaultUser}
-              disabled={loading}
+              disabled={loading || creatingUser}
             >
-              Create Default User
+              {creatingUser ? 'Creating User...' : 'Create Default User (admin/admin123)'}
+            </button>
+            
+            <button 
+              type="button" 
+              className="btn btn-link"
+              onClick={testConnection}
+              style={{ marginTop: '10px', fontSize: '12px' }}
+            >
+              Test Connection
             </button>
           </div>
         </div>
