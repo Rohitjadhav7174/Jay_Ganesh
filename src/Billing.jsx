@@ -3,6 +3,8 @@ import axios from 'axios';
 import BillForm from './BillForm';
 import { Plus, Edit, Trash2, Download, RefreshCw } from 'lucide-react';
 
+const API_BASE_URL = 'https://jay-ganesh-backend.vercel.app';
+
 const Billing = () => {
   const [selectedLocation, setSelectedLocation] = useState('Ratanagiri');
   const [bills, setBills] = useState([]);
@@ -23,7 +25,7 @@ const Billing = () => {
       console.log(`🔄 Fetching bills for: ${selectedLocation}`);
       
       const response = await axios.get(
-        `http://localhost:5001/api/bills/${selectedLocation}`,
+        `${API_BASE_URL}/api/bills/${selectedLocation}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -55,7 +57,7 @@ const Billing = () => {
     if (window.confirm('Are you sure you want to delete this bill?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:5001/api/bills/${billId}`, {
+        await axios.delete(`${API_BASE_URL}/api/bills/${billId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         fetchBills();
