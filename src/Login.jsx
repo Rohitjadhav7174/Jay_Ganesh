@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = 'https://jay-ganesh-backend.vercel.app';
+
 const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
     username: '',
@@ -22,17 +24,43 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await axios.post('https://jay-ganesh-backend.vercel.app/api/login', formData);
-      onLogin(response.data.token);
+      const response = await axios.post(`${API_BASE_URL}/api/login`, formData);
+      
+      if (response.data.token) {
+        onLogin(response.data.token);
+      } else {
+        setError('Invalid response from server');
+      }
     } catch (error) {
-      setError(error.response?.data?.message || 'Login failed');
+      console.error('Login error:', error);
+      if (error.response?.status === 0) {
+        setError('Cannot connect to server. Please check your internet connection.');
+      } else {
+        setError(error.response?.data?.message || 'Login failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateDefaultUser = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API_BASE_URL}/api/create-default-user`);
+      setFormData({
+        username: 'admin',
+        password: 'admin123'
+      });
+      alert('Default user created! Username: admin, Password: admin123');
+    } catch (error) {
+      setError('Error creating default user');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container" >
+    <div className="login-container">
       {/* Animated Background */}
       <div className="animated-bg">
         <div className="shape shape1"></div>
@@ -70,6 +98,7 @@ const Login = ({ onLogin }) => {
               onChange={handleChange}
               required
               placeholder="Enter your username"
+              disabled={loading}
             />
           </div>
           
@@ -82,6 +111,7 @@ const Login = ({ onLogin }) => {
               onChange={handleChange}
               required
               placeholder="Enter your password"
+              disabled={loading}
             />
           </div>
           
@@ -99,6 +129,18 @@ const Login = ({ onLogin }) => {
               'Login'
             )}
           </button>
+
+          <div className="login-help">
+            <p>Don't have an account?</p>
+            <button 
+              type="button" 
+              className="btn btn-link"
+              onClick={handleCreateDefaultUser}
+              disabled={loading}
+            >
+              Create Default User
+            </button>
+          </div>
         </div>
       </form>
     </div>
