@@ -54,16 +54,22 @@ const Billing = () => {
   };
 
   const handleDeleteBill = async (billId) => {
-    if (window.confirm('Are you sure you want to delete this bill?')) {
+    if (window.confirm('Are you sure you want to delete this bill? This action cannot be undone.')) {
       try {
         const token = localStorage.getItem('token');
         await axios.delete(`${API_BASE_URL}/api/bills/${billId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        
+        // Remove the bill from local state for immediate UI update
+        setBills(bills.filter(bill => bill._id !== billId));
+        
+        // Also refresh from server to ensure consistency
         fetchBills();
+        
       } catch (error) {
         console.error('Error deleting bill:', error);
-        setError('Error deleting bill');
+        setError(error.response?.data?.message || 'Error deleting bill');
       }
     }
   };
@@ -110,18 +116,23 @@ const Billing = () => {
               <div className="error-content">
                 <span className="error-icon">⚠️</span>
                 <span>{error}</span>
+                <button 
+                  className="error-close" 
+                  onClick={() => setError('')}
+                >
+                  ×
+                </button>
               </div>
             </div>
           )}
         </div>
         <div className="header-actions">
           <button 
-            className="btn btn-outline" 
+            className="btn btn-secondary" 
             onClick={handleRefresh}
             disabled={loading}
-            title="Refresh Bills"
           >
-            <RefreshCw size={18} className={loading ? 'spinning' : ''} />
+            <RefreshCw size={18} style={{ marginRight: '8px' }} />
             Refresh
           </button>
           <button className="btn btn-primary createbtn" onClick={handleCreateBill}>
