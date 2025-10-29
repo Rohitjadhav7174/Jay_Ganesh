@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { X, Save, Eye, Printer, Plus, Trash2, Building, User, Truck, CreditCard, Banknote, FileText } from 'lucide-react';
+import { X, Save, Eye, Printer, Plus, Trash2, Building, User, Truck, CreditCard, Banknote, FileText, Share2 } from 'lucide-react';
 
 const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -44,6 +44,8 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [fetchingDefaults, setFetchingDefaults] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [savingForShare, setSavingForShare] = useState(false);
 
   const getDefaultDateRange = () => {
     const currentDate = new Date();
@@ -275,8 +277,7 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     };
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const saveBill = async () => {
     setLoading(true);
     setError('');
 
@@ -339,108 +340,127 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
         );
       }
 
-      onSubmit();
+      return true;
     } catch (error) {
       console.error('Submit error:', error);
       setError(error.response?.data?.message || 'Error saving bill');
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const success = await saveBill();
+    if (success) {
+      onSubmit();
+    }
+  };
+
+  const handleShareClick = async () => {
+    setSavingForShare(true);
+    const success = await saveBill();
+    setSavingForShare(false);
+    
+    if (success) {
+      setShowShareOptions(true);
+    }
+  };
+
+  const handleShareAndClose = (shareFunction) => {
+    shareFunction();
+    // Close the form and go back to dashboard after a short delay
+    setTimeout(() => {
+      onSubmit();
+    }, 1000);
+  };
+
   const totals = calculateTotals();
 
-const numberToWords = (num) => {
-  // Handle decimal numbers
-  const integerPart = Math.floor(num);
-  const decimalPart = Math.round((num - integerPart) * 100);
-  
-  if (integerPart === 0 && decimalPart === 0) return 'Zero rupees only';
-
-  const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
-  const teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-
-  const convertBelowHundred = (n) => {
-    if (n === 0) return '';
-    if (n < 10) return ones[n];
-    if (n < 20) return teens[n - 10];
-    const ten = Math.floor(n / 10);
-    const one = n % 10;
-    return tens[ten] + (one > 0 ? ' ' + ones[one] : '');
-  };
-
-  const convertBelowThousand = (n) => {
-    if (n === 0) return '';
+  const numberToWords = (num) => {
+    const integerPart = Math.floor(num);
+    const decimalPart = Math.round((num - integerPart) * 100);
     
-    const hundred = Math.floor(n / 100);
-    const remainder = n % 100;
-    
-    let words = '';
-    if (hundred > 0) {
-      words += ones[hundred] + ' hundred';
-    }
-    if (remainder > 0) {
-      if (hundred > 0) words += ' ';
-      words += convertBelowHundred(remainder);
-    }
-    return words;
-  };
+    if (integerPart === 0 && decimalPart === 0) return 'Zero rupees only';
 
-  const convertNumber = (n) => {
-    if (n === 0) return 'zero';
+    const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    const teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
 
-    let words = '';
-    
-    // Crores (10,000,000)
-    if (n >= 10000000) {
-      const crores = Math.floor(n / 10000000);
-      words += convertBelowThousand(crores) + ' crore ';
-      n %= 10000000;
-    }
-    
-    // Lakhs (100,000)
-    if (n >= 100000) {
-      const lakhs = Math.floor(n / 100000);
-      words += convertBelowThousand(lakhs) + ' lakh ';
-      n %= 100000;
-    }
-    
-    // Thousands (1,000)
-    if (n >= 1000) {
-      const thousands = Math.floor(n / 1000);
-      words += convertBelowThousand(thousands) + ' thousand ';
-      n %= 1000;
-    }
-    
-    // Hundreds, Tens and Ones
-    if (n > 0) {
-      words += convertBelowThousand(n);
-    }
-    
-    return words.trim();
-  };
+    const convertBelowHundred = (n) => {
+      if (n === 0) return '';
+      if (n < 10) return ones[n];
+      if (n < 20) return teens[n - 10];
+      const ten = Math.floor(n / 10);
+      const one = n % 10;
+      return tens[ten] + (one > 0 ? ' ' + ones[one] : '');
+    };
 
-  let result = '';
+    const convertBelowThousand = (n) => {
+      if (n === 0) return '';
+      
+      const hundred = Math.floor(n / 100);
+      const remainder = n % 100;
+      
+      let words = '';
+      if (hundred > 0) {
+        words += ones[hundred] + ' hundred';
+      }
+      if (remainder > 0) {
+        if (hundred > 0) words += ' ';
+        words += convertBelowHundred(remainder);
+      }
+      return words;
+    };
 
-  // Convert integer part (rupees)
-  if (integerPart > 0) {
-    result = convertNumber(integerPart) + ' rupees';
-  }
+    const convertNumber = (n) => {
+      if (n === 0) return 'zero';
 
-  // Convert decimal part (paise)
-  if (decimalPart > 0) {
+      let words = '';
+      
+      if (n >= 10000000) {
+        const crores = Math.floor(n / 10000000);
+        words += convertBelowThousand(crores) + ' crore ';
+        n %= 10000000;
+      }
+      
+      if (n >= 100000) {
+        const lakhs = Math.floor(n / 100000);
+        words += convertBelowThousand(lakhs) + ' lakh ';
+        n %= 100000;
+      }
+      
+      if (n >= 1000) {
+        const thousands = Math.floor(n / 1000);
+        words += convertBelowThousand(thousands) + ' thousand ';
+        n %= 1000;
+      }
+      
+      if (n > 0) {
+        words += convertBelowThousand(n);
+      }
+      
+      return words.trim();
+    };
+
+    let result = '';
+
     if (integerPart > 0) {
-      result += ' and ';
+      result = convertNumber(integerPart) + ' rupees';
     }
-    result += convertNumber(decimalPart) + ' paise';
-  }
 
-  result += ' only';
+    if (decimalPart > 0) {
+      if (integerPart > 0) {
+        result += ' and ';
+      }
+      result += convertNumber(decimalPart) + ' paise';
+    }
 
-  // Capitalize first letter
-  return result.charAt(0).toUpperCase() + result.slice(1);
-};
+    result += ' only';
+
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -601,6 +621,115 @@ const numberToWords = (num) => {
     }, 250);
   };
 
+  const generatePDF = async () => {
+    alert('PDF generation would be implemented here. Using print for now.');
+    handlePrint();
+  };
+
+  const shareViaEmail = () => {
+    const subject = `Invoice ${getSafeValue(formData.billNumber)}`;
+    const body = `Please find attached the invoice ${getSafeValue(formData.billNumber)} dated ${formatDate(getSafeValue(formData.date))}.`;
+    
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  const shareViaWhatsApp = () => {
+    const text = `Invoice ${getSafeValue(formData.billNumber)} - ${formatDate(getSafeValue(formData.date))} - Total: ₹${totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const downloadAsText = () => {
+    const billText = `
+TAX INVOICE
+===========
+
+Invoice No: ${getSafeValue(formData.billNumber)}
+Date: ${formatDate(getSafeValue(formData.date))}
+
+Supplier: ${getSafeValue(formData.supplier.name)}
+${getSafeValue(formData.supplier.address)}
+${getSafeValue(formData.supplier.gstin) ? `GSTIN: ${getSafeValue(formData.supplier.gstin)}` : ''}
+
+Buyer: ${getSafeValue(formData.buyer.name)}
+${getSafeValue(formData.buyer.address)}
+PAN: ${getSafeValue(formData.buyer.pan)}
+
+Items:
+${formData.items.map((item, index) => 
+  `${index + 1}. ${getSafeValue(item.description)} - ${getSafeValue(item.quantity)} ${getSafeValue(item.unit)} @ ₹${getSafeValue(item.rate)} = ₹${getSafeValue(item.amount)}`
+).join('\n')}
+
+Total Amount: ₹${totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+Amount in Words: ${numberToWords(totals.totalAmount)}
+
+Bank Details:
+${getSafeValue(formData.bankDetails.name)}
+A/c No: ${getSafeValue(formData.bankDetails.accountNumber)}
+Branch: ${getSafeValue(formData.bankDetails.branch)}
+${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankDetails.ifsc)}` : ''}
+    `.trim();
+
+    const blob = new Blob([billText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoice-${getSafeValue(formData.billNumber)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const copyToClipboard = async () => {
+    const billText = `Invoice ${getSafeValue(formData.billNumber)} - ${getSafeValue(formData.buyer.name)} - Total: ₹${totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    
+    try {
+      await navigator.clipboard.writeText(billText);
+      alert('Bill information copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      alert('Failed to copy to clipboard');
+    }
+  };
+
+  const ShareOptions = () => (
+    <div className="share-options-overlay">
+      <div className="share-options-modal">
+        <div className="share-options-header">
+          <h3>Share Bill</h3>
+          <button 
+            className="btn btn-close" 
+            onClick={() => setShowShareOptions(false)}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="share-options-grid">
+          <button className="share-option" onClick={() => handleShareAndClose(shareViaEmail)}>
+            <div className="share-icon">📧</div>
+            <span>Email</span>
+          </button>
+          <button className="share-option" onClick={() => handleShareAndClose(shareViaWhatsApp)}>
+            <div className="share-icon">💬</div>
+            <span>WhatsApp</span>
+          </button>
+          <button className="share-option" onClick={() => handleShareAndClose(generatePDF)}>
+            <div className="share-icon">📄</div>
+            <span>PDF</span>
+          </button>
+          <button className="share-option" onClick={() => handleShareAndClose(downloadAsText)}>
+            <div className="share-icon">📝</div>
+            <span>Text File</span>
+          </button>
+          <button className="share-option" onClick={() => handleShareAndClose(copyToClipboard)}>
+            <div className="share-icon">📋</div>
+            <span>Copy Info</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const BillPreview = () => (
     <div id="bill-preview" className="bill-preview">
       <div className="preview-header">
@@ -650,18 +779,15 @@ const numberToWords = (num) => {
           </tr>
           <tr>
             <td></td>
-  <td>
-    Despatched through: <strong>Goods Vehicle</strong>
-    {getSafeValue(formData.dispatchedThrough) && ` - ${getSafeValue(formData.dispatchedThrough)}`}
-  </td>         
-     <td>Destination: {getSafeValue(formData.destination)}</td>
+            <td>
+              Despatched through: <strong>Goods Vehicle</strong>
+              {getSafeValue(formData.dispatchedThrough) && ` - ${getSafeValue(formData.dispatchedThrough)}`}
+            </td>         
+            <td>Destination: {getSafeValue(formData.destination)}</td>
           </tr>
           <tr>
             <td></td>
-            <td>Terms of Delivery: <strong>Direct To School</strong>
-
-
-            </td>
+            <td>Terms of Delivery: <strong>Direct To School</strong></td>
             <td></td>
           </tr>
         </tbody>
@@ -743,12 +869,23 @@ const numberToWords = (num) => {
             <X size={18} className="mr-2" />
             Back to Edit
           </button>
-          <button className="btn btn-primary" onClick={handlePrint}>
-            <Printer size={18} className="mr-2" />
-            Print Bill
-          </button>
+          <div className="preview-action-buttons">
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleShareClick}
+              disabled={savingForShare}
+            >
+              <Share2 size={18} className="mr-2" />
+              {savingForShare ? 'Saving...' : 'Share Bill'}
+            </button>
+            <button className="btn btn-primary" onClick={handlePrint}>
+              <Printer size={18} className="mr-2" />
+              Print Bill
+            </button>
+          </div>
         </div>
         <BillPreview />
+        {showShareOptions && <ShareOptions />}
       </div>
     );
   }
@@ -769,13 +906,6 @@ const numberToWords = (num) => {
           </div>
           <div className="header-actions">
             <button 
-              className="btn btn-secondary"
-              onClick={() => setShowPreview(true)}
-            >
-              <Eye size={18} className="mr-2" />
-              Preview
-            </button>
-            <button 
               className="btn btn-outline"
               onClick={onClose}
             >
@@ -795,6 +925,7 @@ const numberToWords = (num) => {
       )}
 
       <form onSubmit={handleSubmit} className="form-content">
+        {/* All your existing form sections remain the same */}
         {/* Basic Information */}
         <div className="form-section">
           <div className="section-header">
@@ -1133,6 +1264,13 @@ const numberToWords = (num) => {
               <span className="summary-label">Total Amount:</span>
               <span className="summary-value">₹{totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
+            <button 
+              className="btn btn-secondary d-flex align-items-center" 
+              onClick={() => setShowPreview(true)}
+            >
+              <Eye size={18} color="white" className="me-2" />
+              Preview
+            </button>
           </div>
         </div>
 
