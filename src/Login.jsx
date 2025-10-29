@@ -157,11 +157,7 @@ const Login = ({ onLogin }) => {
             )}
           </button>
 
-        
-                      </div>
-
-           
-          </div>
+          
         </div>
       </form>
     </div>
