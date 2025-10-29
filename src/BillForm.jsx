@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, Save, Eye, Printer, Plus, Trash2, Building, User, Truck, CreditCard, Banknote, FileText, Share2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -48,9 +46,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [fetchingDefaults, setFetchingDefaults] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [savingForShare, setSavingForShare] = useState(false);
-  const [generatingPDF, setGeneratingPDF] = useState(false);
-
-  const previewRef = useRef(null);
 
   const getDefaultDateRange = () => {
     const currentDate = new Date();
@@ -327,7 +322,7 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
         ...totals
       };
 
-      if (bill && bill._id) {
+      if (bill) {
         await axios.put(
           `https://jay-ganesh-backend.vercel.app/api/bills/${bill._id}`,
           submitData,
@@ -373,9 +368,12 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     }
   };
 
-  const handleShareOption = (shareFunction) => {
+  const handleShareAndClose = (shareFunction) => {
     shareFunction();
-    setShowShareOptions(false);
+    // Close the form and go back to dashboard after a short delay
+    setTimeout(() => {
+      onSubmit();
+    }, 1000);
   };
 
   const totals = calculateTotals();
@@ -483,63 +481,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     return `${getOrdinal(day)} ${month} ${year}`;
   };
 
-  const generatePDF = async () => {
-    setGeneratingPDF(true);
-    try {
-      const element = previewRef.current;
-      if (!element) {
-        alert('Preview content not found!');
-        return;
-      }
-
-      // Create a new PDF instance
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      // Capture the preview as canvas
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      
-      // Calculate dimensions to fit the page
-      const imgWidth = pageWidth - 20; // 10mm margin on each side
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      // Add image to PDF
-      let heightLeft = imgHeight;
-      let position = 10;
-
-      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // Add new pages if content is too long
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight + 10;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      // Save the PDF
-      pdf.save(`invoice-${getSafeValue(formData.billNumber)}.pdf`);
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
-    } finally {
-      setGeneratingPDF(false);
-    }
-  };
-
   const handlePrint = () => {
     const printContent = document.getElementById('bill-preview');
     
@@ -640,6 +581,31 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
                 page-break-inside: avoid;
               }
             }
+            @media (max-width: 768px) {
+              body {
+                margin: 10px;
+                font-size: 10px;
+              }
+              .preview-table th,
+              .preview-table td {
+                padding: 4px 6px;
+                font-size: 10px;
+              }
+              .preview-header h1 {
+                font-size: 20px;
+              }
+            }
+            @media (max-width: 480px) {
+              body {
+                margin: 5px;
+                font-size: 8px;
+              }
+              .preview-table th,
+              .preview-table td {
+                padding: 2px 4px;
+                font-size: 8px;
+              }
+            }
           </style>
         </head>
         <body>
@@ -653,6 +619,11 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     setTimeout(() => {
       printWindow.print();
     }, 250);
+  };
+
+  const generatePDF = async () => {
+    alert('PDF generation would be implemented here. Using print for now.');
+    handlePrint();
   };
 
   const shareViaEmail = () => {
@@ -734,31 +705,23 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           </button>
         </div>
         <div className="share-options-grid">
-          <button className="share-option" onClick={() => handleShareOption(shareViaEmail)}>
+          <button className="share-option" onClick={() => handleShareAndClose(shareViaEmail)}>
             <div className="share-icon">📧</div>
             <span>Email</span>
           </button>
-          <button className="share-option" onClick={() => handleShareOption(shareViaWhatsApp)}>
+          <button className="share-option" onClick={() => handleShareAndClose(shareViaWhatsApp)}>
             <div className="share-icon">💬</div>
             <span>WhatsApp</span>
           </button>
-          <button 
-            className="share-option" 
-            onClick={() => handleShareOption(generatePDF)}
-            disabled={generatingPDF}
-          >
-            <div className="share-icon">{generatingPDF ? '⏳' : '📄'}</div>
-            <span>{generatingPDF ? 'Generating...' : 'PDF'}</span>
+          <button className="share-option" onClick={() => handleShareAndClose(generatePDF)}>
+            <div className="share-icon">📄</div>
+            <span>PDF</span>
           </button>
-          <button className="share-option" onClick={() => handleShareOption(handlePrint)}>
-            <div className="share-icon">🖨️</div>
-            <span>Print</span>
-          </button>
-          <button className="share-option" onClick={() => handleShareOption(downloadAsText)}>
+          <button className="share-option" onClick={() => handleShareAndClose(downloadAsText)}>
             <div className="share-icon">📝</div>
             <span>Text File</span>
           </button>
-          <button className="share-option" onClick={() => handleShareOption(copyToClipboard)}>
+          <button className="share-option" onClick={() => handleShareAndClose(copyToClipboard)}>
             <div className="share-icon">📋</div>
             <span>Copy Info</span>
           </button>
@@ -768,7 +731,7 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
   );
 
   const BillPreview = () => (
-    <div id="bill-preview" ref={previewRef} className="bill-preview">
+    <div id="bill-preview" className="bill-preview">
       <div className="preview-header">
         <h1>TAX INVOICE</h1>
       </div>
@@ -943,15 +906,6 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           </div>
           <div className="header-actions">
             <button 
-              className="btn btn-secondary"
-              onClick={handleShareClick}
-              disabled={savingForShare}
-              style={{ marginRight: '10px' }}
-            >
-              <Share2 size={18} style={{ marginRight: '8px' }} />
-              {savingForShare ? 'Saving...' : 'Share'}
-            </button>
-            <button 
               className="btn btn-outline"
               onClick={onClose}
             >
@@ -971,6 +925,7 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
       )}
 
       <form onSubmit={handleSubmit} className="form-content">
+        {/* All your existing form sections remain the same */}
         {/* Basic Information */}
         <div className="form-section">
           <div className="section-header">
@@ -1309,25 +1264,13 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
               <span className="summary-label">Total Amount:</span>
               <span className="summary-value">₹{totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
-            <div style={{ display: 'flex', gap: '10px', gridColumn: '1 / -1' }}>
-              <button 
-                type="button" 
-                className="btn btn-secondary"
-                onClick={() => setShowPreview(true)}
-              >
-                <Eye size={18} style={{ marginRight: '8px' }} />
-                Preview
-              </button>
-              <button 
-                type="button" 
-                className="btn btn-outline"
-                onClick={handleShareClick}
-                disabled={savingForShare}
-              >
-                <Share2 size={18} style={{ marginRight: '8px' }} />
-                {savingForShare ? 'Saving...' : 'Share Bill'}
-              </button>
-            </div>
+            <button 
+              className="btn btn-secondary d-flex align-items-center" 
+              onClick={() => setShowPreview(true)}
+            >
+              <Eye size={18} color="white" className="me-2" />
+              Preview
+            </button>
           </div>
         </div>
 
@@ -1336,26 +1279,12 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           <button type="button" className="btn btn-outline" onClick={onClose}>
             Cancel
           </button>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              type="button" 
-              className="btn btn-secondary"
-              onClick={handleShareClick}
-              disabled={loading || fetchingDefaults || savingForShare}
-            >
-              <Share2 size={18} style={{ marginRight: '8px' }} />
-              {savingForShare ? 'Saving...' : 'Share'}
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={loading || fetchingDefaults}>
-              <Save size={18} style={{ marginRight: '8px' }} />
-              {loading ? 'Saving...' : (fetchingDefaults ? 'Loading...' : 'Save Bill')}
-            </button>
-          </div>
+          <button type="submit" className="btn btn-primary" disabled={loading || fetchingDefaults}>
+            <Save size={18} className="mr-2" />
+            {loading ? 'Saving...' : (fetchingDefaults ? 'Loading...' : 'Save Bill')}
+          </button>
         </div>
       </form>
-
-      {/* Render ShareOptions modal */}
-      {showShareOptions && <ShareOptions />}
     </div>
   );
 };
