@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Billing from './Billing';
 import { LogOut, FileText, Menu } from 'lucide-react';
@@ -8,6 +8,14 @@ const Dashboard = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Update active tab based on current route
+  useEffect(() => {
+    const path = location.pathname.split('/').pop();
+    if (path && path !== 'dashboard') {
+      setActiveTab(path);
+    }
+  }, [location]);
 
   const handleLogout = () => {
     onLogout();
@@ -31,11 +39,11 @@ const Dashboard = ({ onLogout }) => {
             className={activeTab === 'billing' ? 'active' : ''}
             onClick={() => handleNavigation('billing')}
           >
-<FileText 
-  size={18} 
-  color="white" 
-  style={{ marginRight: '10px' }} 
-/>
+            <FileText 
+              size={18} 
+              color="white" 
+              style={{ marginRight: '10px' }} 
+            />
             Billing
           </li>
           <li className="logout" onClick={handleLogout}>
@@ -63,10 +71,13 @@ const Dashboard = ({ onLogout }) => {
           ></div>
         )}
         
-        <Routes>
-          <Route path="billing" element={<Billing />} />
-          <Route path="/" element={<Billing />} />
-        </Routes>
+        <div className="content-area">
+          <Routes>
+            <Route path="billing" element={<Billing />} />
+            <Route path="" element={<Billing />} />
+            <Route path="*" element={<Billing />} />
+          </Routes>
+        </div>
       </div>
     </div>
   );
