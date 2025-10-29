@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { X, Save, Eye, Printer, Plus, Trash2, Building, User, Truck, CreditCard, Banknote, FileText, Share2 } from 'lucide-react';
+import { X, Save, Eye, Printer, Plus, Trash2, Building, User, Truck, CreditCard, Banknote, FileText, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -44,8 +46,7 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [fetchingDefaults, setFetchingDefaults] = useState(false);
-  const [showShareOptions, setShowShareOptions] = useState(false);
-  const [savingForShare, setSavingForShare] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   const getDefaultDateRange = () => {
     const currentDate = new Date();
@@ -358,24 +359,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     }
   };
 
-  const handleShareClick = async () => {
-    setSavingForShare(true);
-    const success = await saveBill();
-    setSavingForShare(false);
-    
-    if (success) {
-      setShowShareOptions(true);
-    }
-  };
-
-  const handleShareAndClose = (shareFunction) => {
-    shareFunction();
-    // Close the form and go back to dashboard after a short delay
-    setTimeout(() => {
-      onSubmit();
-    }, 1000);
-  };
-
   const totals = calculateTotals();
 
   const numberToWords = (num) => {
@@ -481,6 +464,167 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     return `${getOrdinal(day)} ${month} ${year}`;
   };
 
+  const generateHighQualityPDF = async () => {
+    setGeneratingPDF(true);
+    try {
+      const input = document.getElementById('bill-preview');
+      
+      if (!input) {
+        alert('Bill content not found!');
+        return false;
+      }
+
+      // Create optimized styling for PDF
+      const optimizedStyles = `
+        <style>
+          body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 15px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #000;
+            background: white;
+          }
+          .bill-preview {
+            width: 100%;
+            max-width: 100%;
+          }
+          .preview-header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+          }
+          .preview-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+          }
+          .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            border: 1px solid #000;
+            font-size: 10px;
+          }
+          .preview-table th,
+          .preview-table td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            text-align: left;
+          }
+          .preview-table th {
+            background: #f0f0f0;
+            font-weight: bold;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .amount-words {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f8f8;
+            border: 1px solid #ccc;
+            font-size: 11px;
+          }
+          .bank-details {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            font-size: 11px;
+          }
+          .signatory {
+            text-align: right;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #000;
+            font-size: 11px;
+          }
+        </style>
+      `;
+
+      // Create a temporary container with optimized styles
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.width = '210mm';
+      tempContainer.style.padding = '20px';
+      tempContainer.style.boxSizing = 'border-box';
+      tempContainer.style.background = 'white';
+      
+      // Clone the content and add optimized styles
+      const clone = input.cloneNode(true);
+      tempContainer.innerHTML = optimizedStyles + clone.outerHTML;
+      document.body.appendChild(tempContainer);
+
+      const canvas = await html2canvas(tempContainer, {
+        scale: 3,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      // Clean up
+      document.body.removeChild(tempContainer);
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgWidth = pdfWidth - 20;
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+      
+      let heightLeft = imgHeight;
+      let position = 10;
+
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Add new pages if content is too long
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      // Download PDF
+      const fileName = `invoice-${getSafeValue(formData.billNumber)}.pdf`;
+      pdf.save(fileName);
+      return true;
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+      return false;
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  const downloadPDF = async () => {
+    // First save the bill if it's new or modified
+    if (!bill) {
+      const success = await saveBill();
+      if (!success) {
+        return; // Don't proceed if save failed
+      }
+    }
+    
+    // Then generate and download PDF
+    await generateHighQualityPDF();
+  };
+
   const handlePrint = () => {
     const printContent = document.getElementById('bill-preview');
     
@@ -581,31 +725,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
                 page-break-inside: avoid;
               }
             }
-            @media (max-width: 768px) {
-              body {
-                margin: 10px;
-                font-size: 10px;
-              }
-              .preview-table th,
-              .preview-table td {
-                padding: 4px 6px;
-                font-size: 10px;
-              }
-              .preview-header h1 {
-                font-size: 20px;
-              }
-            }
-            @media (max-width: 480px) {
-              body {
-                margin: 5px;
-                font-size: 8px;
-              }
-              .preview-table th,
-              .preview-table td {
-                padding: 2px 4px;
-                font-size: 8px;
-              }
-            }
           </style>
         </head>
         <body>
@@ -620,115 +739,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
       printWindow.print();
     }, 250);
   };
-
-  const generatePDF = async () => {
-    alert('PDF generation would be implemented here. Using print for now.');
-    handlePrint();
-  };
-
-  const shareViaEmail = () => {
-    const subject = `Invoice ${getSafeValue(formData.billNumber)}`;
-    const body = `Please find attached the invoice ${getSafeValue(formData.billNumber)} dated ${formatDate(getSafeValue(formData.date))}.`;
-    
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
-
-  const shareViaWhatsApp = () => {
-    const text = `Invoice ${getSafeValue(formData.billNumber)} - ${formatDate(getSafeValue(formData.date))} - Total: ₹${totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const downloadAsText = () => {
-    const billText = `
-TAX INVOICE
-===========
-
-Invoice No: ${getSafeValue(formData.billNumber)}
-Date: ${formatDate(getSafeValue(formData.date))}
-
-Supplier: ${getSafeValue(formData.supplier.name)}
-${getSafeValue(formData.supplier.address)}
-${getSafeValue(formData.supplier.gstin) ? `GSTIN: ${getSafeValue(formData.supplier.gstin)}` : ''}
-
-Buyer: ${getSafeValue(formData.buyer.name)}
-${getSafeValue(formData.buyer.address)}
-PAN: ${getSafeValue(formData.buyer.pan)}
-
-Items:
-${formData.items.map((item, index) => 
-  `${index + 1}. ${getSafeValue(item.description)} - ${getSafeValue(item.quantity)} ${getSafeValue(item.unit)} @ ₹${getSafeValue(item.rate)} = ₹${getSafeValue(item.amount)}`
-).join('\n')}
-
-Total Amount: ₹${totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-Amount in Words: ${numberToWords(totals.totalAmount)}
-
-Bank Details:
-${getSafeValue(formData.bankDetails.name)}
-A/c No: ${getSafeValue(formData.bankDetails.accountNumber)}
-Branch: ${getSafeValue(formData.bankDetails.branch)}
-${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankDetails.ifsc)}` : ''}
-    `.trim();
-
-    const blob = new Blob([billText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `invoice-${getSafeValue(formData.billNumber)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const copyToClipboard = async () => {
-    const billText = `Invoice ${getSafeValue(formData.billNumber)} - ${getSafeValue(formData.buyer.name)} - Total: ₹${totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-    
-    try {
-      await navigator.clipboard.writeText(billText);
-      alert('Bill information copied to clipboard!');
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-      alert('Failed to copy to clipboard');
-    }
-  };
-
-  const ShareOptions = () => (
-    <div className="share-options-overlay">
-      <div className="share-options-modal">
-        <div className="share-options-header">
-          <h3>Share Bill</h3>
-          <button 
-            className="btn btn-close" 
-            onClick={() => setShowShareOptions(false)}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="share-options-grid">
-          <button className="share-option" onClick={() => handleShareAndClose(shareViaEmail)}>
-            <div className="share-icon">📧</div>
-            <span>Email</span>
-          </button>
-          <button className="share-option" onClick={() => handleShareAndClose(shareViaWhatsApp)}>
-            <div className="share-icon">💬</div>
-            <span>WhatsApp</span>
-          </button>
-          <button className="share-option" onClick={() => handleShareAndClose(generatePDF)}>
-            <div className="share-icon">📄</div>
-            <span>PDF</span>
-          </button>
-          <button className="share-option" onClick={() => handleShareAndClose(downloadAsText)}>
-            <div className="share-icon">📝</div>
-            <span>Text File</span>
-          </button>
-          <button className="share-option" onClick={() => handleShareAndClose(copyToClipboard)}>
-            <div className="share-icon">📋</div>
-            <span>Copy Info</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   const BillPreview = () => (
     <div id="bill-preview" className="bill-preview">
@@ -872,11 +882,11 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           <div className="preview-action-buttons">
             <button 
               className="btn btn-secondary" 
-              onClick={handleShareClick}
-              disabled={savingForShare}
+              onClick={downloadPDF}
+              disabled={generatingPDF}
             >
-              <Share2 size={18} className="mr-2" />
-              {savingForShare ? 'Saving...' : 'Share Bill'}
+              <Download size={18} className="mr-2" />
+              {generatingPDF ? 'Generating PDF...' : 'Download PDF'}
             </button>
             <button className="btn btn-primary" onClick={handlePrint}>
               <Printer size={18} className="mr-2" />
@@ -885,7 +895,6 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           </div>
         </div>
         <BillPreview />
-        {showShareOptions && <ShareOptions />}
       </div>
     );
   }
@@ -925,7 +934,6 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
       )}
 
       <form onSubmit={handleSubmit} className="form-content">
-        {/* All your existing form sections remain the same */}
         {/* Basic Information */}
         <div className="form-section">
           <div className="section-header">
@@ -1285,6 +1293,87 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           </button>
         </div>
       </form>
+
+      <style jsx>{`
+        .preview-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+          padding: 20px;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .preview-action-buttons {
+          display: flex;
+          gap: 10px;
+        }
+
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          padding: 10px 16px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          background: white;
+          cursor: pointer;
+          text-decoration: none;
+          font-size: 14px;
+          transition: all 0.2s;
+        }
+
+        .btn-primary {
+          background: #007bff;
+          color: white;
+          border-color: #007bff;
+        }
+
+        .btn-secondary {
+          background: #6c757d;
+          color: white;
+          border-color: #6c757d;
+        }
+
+        .btn-outline {
+          background: white;
+          color: #333;
+          border: 1px solid #ddd;
+        }
+
+        .btn-danger {
+          background: #dc3545;
+          color: white;
+          border-color: #dc3545;
+        }
+
+        .btn-sm {
+          padding: 6px 12px;
+          font-size: 12px;
+        }
+
+        .btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .mr-2 {
+          margin-right: 8px;
+        }
+
+        .me-2 {
+          margin-right: 8px;
+        }
+
+        .d-flex {
+          display: flex;
+        }
+
+        .align-items-center {
+          align-items: center;
+        }
+      `}</style>
     </div>
   );
 };
