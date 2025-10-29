@@ -157,30 +157,9 @@ const Login = ({ onLogin }) => {
             )}
           </button>
 
-          <div className="login-help">
-            <div className="help-buttons">
-              <button 
-                type="button" 
-                className="btn btn-link"
-                onClick={createDefaultUser}
-                disabled={loading}
-              >
-                Create Default User
-              </button>
-              
-              <button 
-                type="button" 
-                className="btn btn-link"
-                onClick={testConnection}
-                disabled={loading}
-              >
-                Test Connection
-              </button>
-            </div>
+        
             
-            <div className="default-credentials">
-              <small>Default: admin / admin123</small>
-            </div>
+           
           </div>
         </div>
       </form>
