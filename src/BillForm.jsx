@@ -277,78 +277,88 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     };
   };
 
+  
   const saveBill = async () => {
-    setLoading(true);
-    setError('');
+  setLoading(true);
+  setError('');
 
-    try {
-      const token = localStorage.getItem('token');
-      const totals = calculateTotals();
-      
-      const submitData = {
-        billNumber: getSafeValue(formData.billNumber),
-        date: getSafeValue(formData.date),
-        location: getSafeValue(formData.location),
-        dateRange: getSafeValue(formData.dateRange),
-        supplier: {
-          name: getSafeValue(formData.supplier.name),
-          address: getSafeValue(formData.supplier.address),
-          gstin: getSafeValue(formData.supplier.gstin)
-        },
-        buyer: {
-          name: getSafeValue(formData.buyer.name),
-          address: getSafeValue(formData.buyer.address),
-          pan: getSafeValue(formData.buyer.pan)
-        },
-        deliveryNote: getSafeValue(formData.deliveryNote),
-        modeOfPayment: getSafeValue(formData.modeOfPayment),
-        dispatchedThrough: getSafeValue(formData.dispatchedThrough),
-        destination: getSafeValue(formData.destination),
-        bankDetails: {
-          name: getSafeValue(formData.bankDetails.name),
-          accountNumber: getSafeValue(formData.bankDetails.accountNumber),
-          branch: getSafeValue(formData.bankDetails.branch),
-          ifsc: getSafeValue(formData.bankDetails.ifsc)
-        },
-        items: formData.items.map(item => ({
-          description: getSafeValue(item.description),
-          hsnSac: getSafeValue(item.hsnSac),
-          gstRate: getSafeValue(item.gstRate),
-          quantity: getSafeValue(item.quantity, 0),
-          rate: getSafeValue(item.rate, 0),
-          unit: getSafeValue(item.unit, 'KG'),
-          amount: getSafeValue(item.amount, 0)
-        })),
-        ...totals
-      };
+  try {
+    const token = localStorage.getItem('token');
+    const totals = calculateTotals();
+    
+    const submitData = {
+      billNumber: getSafeValue(formData.billNumber),
+      date: getSafeValue(formData.date),
+      location: getSafeValue(formData.location),
+      dateRange: getSafeValue(formData.dateRange),
+      supplier: {
+        name: getSafeValue(formData.supplier.name),
+        address: getSafeValue(formData.supplier.address),
+        gstin: getSafeValue(formData.supplier.gstin)
+      },
+      buyer: {
+        name: getSafeValue(formData.buyer.name),
+        address: getSafeValue(formData.buyer.address),
+        pan: getSafeValue(formData.buyer.pan)
+      },
+      deliveryNote: getSafeValue(formData.deliveryNote),
+      modeOfPayment: getSafeValue(formData.modeOfPayment),
+      dispatchedThrough: getSafeValue(formData.dispatchedThrough),
+      destination: getSafeValue(formData.destination),
+      bankDetails: {
+        name: getSafeValue(formData.bankDetails.name),
+        accountNumber: getSafeValue(formData.bankDetails.accountNumber),
+        branch: getSafeValue(formData.bankDetails.branch),
+        ifsc: getSafeValue(formData.bankDetails.ifsc)
+      },
+      items: formData.items.map(item => ({
+        description: getSafeValue(item.description),
+        hsnSac: getSafeValue(item.hsnSac),
+        gstRate: getSafeValue(item.gstRate),
+        quantity: getSafeValue(item.quantity, 0),
+        rate: getSafeValue(item.rate, 0),
+        unit: getSafeValue(item.unit, 'KG'),
+        amount: getSafeValue(item.amount, 0)
+      })),
+      ...totals
+    };
 
-      if (bill) {
-        await axios.put(
-          `https://jay-ganesh-backend.vercel.app/api/bills/${bill._id}`,
-          submitData,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-      } else {
-        await axios.post(
-          'https://jay-ganesh-backend.vercel.app/api/bills',
-          submitData,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-      }
+    console.log('Saving bill data:', {
+      isEdit: !!bill,
+      billId: bill?._id,
+      billNumber: submitData.billNumber
+    });
 
-      return true;
-    } catch (error) {
-      console.error('Submit error:', error);
-      setError(error.response?.data?.message || 'Error saving bill');
-      return false;
-    } finally {
-      setLoading(false);
+    if (bill && bill._id) {
+      // Make sure we're using the correct bill ID format
+      const response = await axios.put(
+        `https://jay-ganesh-backend.vercel.app/api/bills/${bill._id}`,
+        submitData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      console.log('Update response:', response.data);
+    } else {
+      const response = await axios.post(
+        'https://jay-ganesh-backend.vercel.app/api/bills',
+        submitData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      console.log('Create response:', response.data);
     }
-  };
+
+    return true;
+  } catch (error) {
+    console.error('Submit error:', error);
+    setError(error.response?.data?.message || 'Error saving bill');
+    return false;
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
