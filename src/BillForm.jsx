@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { X, Save, Eye, Printer, Plus, Trash2, Building, User, Truck, CreditCard, Banknote, FileText, Share2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -46,6 +48,9 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
   const [fetchingDefaults, setFetchingDefaults] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [savingForShare, setSavingForShare] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  const previewRef = useRef(null);
 
   const getDefaultDateRange = () => {
     const currentDate = new Date();
@@ -277,88 +282,78 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     };
   };
 
-  
   const saveBill = async () => {
-  setLoading(true);
-  setError('');
+    setLoading(true);
+    setError('');
 
-  try {
-    const token = localStorage.getItem('token');
-    const totals = calculateTotals();
-    
-    const submitData = {
-      billNumber: getSafeValue(formData.billNumber),
-      date: getSafeValue(formData.date),
-      location: getSafeValue(formData.location),
-      dateRange: getSafeValue(formData.dateRange),
-      supplier: {
-        name: getSafeValue(formData.supplier.name),
-        address: getSafeValue(formData.supplier.address),
-        gstin: getSafeValue(formData.supplier.gstin)
-      },
-      buyer: {
-        name: getSafeValue(formData.buyer.name),
-        address: getSafeValue(formData.buyer.address),
-        pan: getSafeValue(formData.buyer.pan)
-      },
-      deliveryNote: getSafeValue(formData.deliveryNote),
-      modeOfPayment: getSafeValue(formData.modeOfPayment),
-      dispatchedThrough: getSafeValue(formData.dispatchedThrough),
-      destination: getSafeValue(formData.destination),
-      bankDetails: {
-        name: getSafeValue(formData.bankDetails.name),
-        accountNumber: getSafeValue(formData.bankDetails.accountNumber),
-        branch: getSafeValue(formData.bankDetails.branch),
-        ifsc: getSafeValue(formData.bankDetails.ifsc)
-      },
-      items: formData.items.map(item => ({
-        description: getSafeValue(item.description),
-        hsnSac: getSafeValue(item.hsnSac),
-        gstRate: getSafeValue(item.gstRate),
-        quantity: getSafeValue(item.quantity, 0),
-        rate: getSafeValue(item.rate, 0),
-        unit: getSafeValue(item.unit, 'KG'),
-        amount: getSafeValue(item.amount, 0)
-      })),
-      ...totals
-    };
+    try {
+      const token = localStorage.getItem('token');
+      const totals = calculateTotals();
+      
+      const submitData = {
+        billNumber: getSafeValue(formData.billNumber),
+        date: getSafeValue(formData.date),
+        location: getSafeValue(formData.location),
+        dateRange: getSafeValue(formData.dateRange),
+        supplier: {
+          name: getSafeValue(formData.supplier.name),
+          address: getSafeValue(formData.supplier.address),
+          gstin: getSafeValue(formData.supplier.gstin)
+        },
+        buyer: {
+          name: getSafeValue(formData.buyer.name),
+          address: getSafeValue(formData.buyer.address),
+          pan: getSafeValue(formData.buyer.pan)
+        },
+        deliveryNote: getSafeValue(formData.deliveryNote),
+        modeOfPayment: getSafeValue(formData.modeOfPayment),
+        dispatchedThrough: getSafeValue(formData.dispatchedThrough),
+        destination: getSafeValue(formData.destination),
+        bankDetails: {
+          name: getSafeValue(formData.bankDetails.name),
+          accountNumber: getSafeValue(formData.bankDetails.accountNumber),
+          branch: getSafeValue(formData.bankDetails.branch),
+          ifsc: getSafeValue(formData.bankDetails.ifsc)
+        },
+        items: formData.items.map(item => ({
+          description: getSafeValue(item.description),
+          hsnSac: getSafeValue(item.hsnSac),
+          gstRate: getSafeValue(item.gstRate),
+          quantity: getSafeValue(item.quantity, 0),
+          rate: getSafeValue(item.rate, 0),
+          unit: getSafeValue(item.unit, 'KG'),
+          amount: getSafeValue(item.amount, 0)
+        })),
+        ...totals
+      };
 
-    console.log('Saving bill data:', {
-      isEdit: !!bill,
-      billId: bill?._id,
-      billNumber: submitData.billNumber
-    });
+      if (bill && bill._id) {
+        await axios.put(
+          `https://jay-ganesh-backend.vercel.app/api/bills/${bill._id}`,
+          submitData,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+      } else {
+        await axios.post(
+          'https://jay-ganesh-backend.vercel.app/api/bills',
+          submitData,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+      }
 
-    if (bill && bill._id) {
-      // Make sure we're using the correct bill ID format
-      const response = await axios.put(
-        `https://jay-ganesh-backend.vercel.app/api/bills/${bill._id}`,
-        submitData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      console.log('Update response:', response.data);
-    } else {
-      const response = await axios.post(
-        'https://jay-ganesh-backend.vercel.app/api/bills',
-        submitData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      console.log('Create response:', response.data);
+      return true;
+    } catch (error) {
+      console.error('Submit error:', error);
+      setError(error.response?.data?.message || 'Error saving bill');
+      return false;
+    } finally {
+      setLoading(false);
     }
-
-    return true;
-  } catch (error) {
-    console.error('Submit error:', error);
-    setError(error.response?.data?.message || 'Error saving bill');
-    return false;
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -378,12 +373,9 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     }
   };
 
-  const handleShareAndClose = (shareFunction) => {
+  const handleShareOption = (shareFunction) => {
     shareFunction();
-    // Close the form and go back to dashboard after a short delay
-    setTimeout(() => {
-      onSubmit();
-    }, 1000);
+    setShowShareOptions(false);
   };
 
   const totals = calculateTotals();
@@ -491,6 +483,63 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     return `${getOrdinal(day)} ${month} ${year}`;
   };
 
+  const generatePDF = async () => {
+    setGeneratingPDF(true);
+    try {
+      const element = previewRef.current;
+      if (!element) {
+        alert('Preview content not found!');
+        return;
+      }
+
+      // Create a new PDF instance
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Capture the preview as canvas
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Calculate dimensions to fit the page
+      const imgWidth = pageWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Add image to PDF
+      let heightLeft = imgHeight;
+      let position = 10;
+
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add new pages if content is too long
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Save the PDF
+      pdf.save(`invoice-${getSafeValue(formData.billNumber)}.pdf`);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
   const handlePrint = () => {
     const printContent = document.getElementById('bill-preview');
     
@@ -591,31 +640,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
                 page-break-inside: avoid;
               }
             }
-            @media (max-width: 768px) {
-              body {
-                margin: 10px;
-                font-size: 10px;
-              }
-              .preview-table th,
-              .preview-table td {
-                padding: 4px 6px;
-                font-size: 10px;
-              }
-              .preview-header h1 {
-                font-size: 20px;
-              }
-            }
-            @media (max-width: 480px) {
-              body {
-                margin: 5px;
-                font-size: 8px;
-              }
-              .preview-table th,
-              .preview-table td {
-                padding: 2px 4px;
-                font-size: 8px;
-              }
-            }
           </style>
         </head>
         <body>
@@ -629,11 +653,6 @@ const BillForm = ({ bill, location, onClose, onSubmit }) => {
     setTimeout(() => {
       printWindow.print();
     }, 250);
-  };
-
-  const generatePDF = async () => {
-    alert('PDF generation would be implemented here. Using print for now.');
-    handlePrint();
   };
 
   const shareViaEmail = () => {
@@ -715,23 +734,31 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           </button>
         </div>
         <div className="share-options-grid">
-          <button className="share-option" onClick={() => handleShareAndClose(shareViaEmail)}>
+          <button className="share-option" onClick={() => handleShareOption(shareViaEmail)}>
             <div className="share-icon">📧</div>
             <span>Email</span>
           </button>
-          <button className="share-option" onClick={() => handleShareAndClose(shareViaWhatsApp)}>
+          <button className="share-option" onClick={() => handleShareOption(shareViaWhatsApp)}>
             <div className="share-icon">💬</div>
             <span>WhatsApp</span>
           </button>
-          <button className="share-option" onClick={() => handleShareAndClose(generatePDF)}>
-            <div className="share-icon">📄</div>
-            <span>PDF</span>
+          <button 
+            className="share-option" 
+            onClick={() => handleShareOption(generatePDF)}
+            disabled={generatingPDF}
+          >
+            <div className="share-icon">{generatingPDF ? '⏳' : '📄'}</div>
+            <span>{generatingPDF ? 'Generating...' : 'PDF'}</span>
           </button>
-          <button className="share-option" onClick={() => handleShareAndClose(downloadAsText)}>
+          <button className="share-option" onClick={() => handleShareOption(handlePrint)}>
+            <div className="share-icon">🖨️</div>
+            <span>Print</span>
+          </button>
+          <button className="share-option" onClick={() => handleShareOption(downloadAsText)}>
             <div className="share-icon">📝</div>
             <span>Text File</span>
           </button>
-          <button className="share-option" onClick={() => handleShareAndClose(copyToClipboard)}>
+          <button className="share-option" onClick={() => handleShareOption(copyToClipboard)}>
             <div className="share-icon">📋</div>
             <span>Copy Info</span>
           </button>
@@ -741,7 +768,7 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
   );
 
   const BillPreview = () => (
-    <div id="bill-preview" className="bill-preview">
+    <div id="bill-preview" ref={previewRef} className="bill-preview">
       <div className="preview-header">
         <h1>TAX INVOICE</h1>
       </div>
@@ -916,6 +943,15 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           </div>
           <div className="header-actions">
             <button 
+              className="btn btn-secondary"
+              onClick={handleShareClick}
+              disabled={savingForShare}
+              style={{ marginRight: '10px' }}
+            >
+              <Share2 size={18} style={{ marginRight: '8px' }} />
+              {savingForShare ? 'Saving...' : 'Share'}
+            </button>
+            <button 
               className="btn btn-outline"
               onClick={onClose}
             >
@@ -935,7 +971,6 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
       )}
 
       <form onSubmit={handleSubmit} className="form-content">
-        {/* All your existing form sections remain the same */}
         {/* Basic Information */}
         <div className="form-section">
           <div className="section-header">
@@ -1274,13 +1309,25 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
               <span className="summary-label">Total Amount:</span>
               <span className="summary-value">₹{totals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
-            <button 
-              className="btn btn-secondary d-flex align-items-center" 
-              onClick={() => setShowPreview(true)}
-            >
-              <Eye size={18} color="white" className="me-2" />
-              Preview
-            </button>
+            <div style={{ display: 'flex', gap: '10px', gridColumn: '1 / -1' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={() => setShowPreview(true)}
+              >
+                <Eye size={18} style={{ marginRight: '8px' }} />
+                Preview
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-outline"
+                onClick={handleShareClick}
+                disabled={savingForShare}
+              >
+                <Share2 size={18} style={{ marginRight: '8px' }} />
+                {savingForShare ? 'Saving...' : 'Share Bill'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1289,12 +1336,26 @@ ${getSafeValue(formData.bankDetails.ifsc) ? `IFSC: ${getSafeValue(formData.bankD
           <button type="button" className="btn btn-outline" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary" disabled={loading || fetchingDefaults}>
-            <Save size={18} className="mr-2" />
-            {loading ? 'Saving...' : (fetchingDefaults ? 'Loading...' : 'Save Bill')}
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button 
+              type="button" 
+              className="btn btn-secondary"
+              onClick={handleShareClick}
+              disabled={loading || fetchingDefaults || savingForShare}
+            >
+              <Share2 size={18} style={{ marginRight: '8px' }} />
+              {savingForShare ? 'Saving...' : 'Share'}
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={loading || fetchingDefaults}>
+              <Save size={18} style={{ marginRight: '8px' }} />
+              {loading ? 'Saving...' : (fetchingDefaults ? 'Loading...' : 'Save Bill')}
+            </button>
+          </div>
         </div>
       </form>
+
+      {/* Render ShareOptions modal */}
+      {showShareOptions && <ShareOptions />}
     </div>
   );
 };
