@@ -428,14 +428,7 @@ const Billing = () => {
           )}
         </div>
         <div className="header-actions">
-          <button 
-            className="btn btn-secondary" 
-            onClick={handleRefresh}
-            disabled={loading}
-          >
-            <RefreshCw size={18} style={{ marginRight: '8px' }} />
-            Refresh
-          </button>
+        
           <button className="btn btn-primary createbtn" onClick={handleCreateBill}>
             <Plus size={18} style={{ marginRight: '8px' }} />
             Create New Bill
