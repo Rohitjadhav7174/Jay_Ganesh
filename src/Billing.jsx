@@ -444,10 +444,10 @@ const Billing = () => {
           Ratanagiri
         </div>
         <div
-          className={`tab ${selectedLocation === 'Singhururg' ? 'active' : ''}`}
+          className={`tab ${selectedLocation === 'sindhudurg' ? 'active' : ''}`}
           onClick={() => setSelectedLocation('Singhururg')}
         >
-          Singhururg
+          sindhudurg
         </div>
       </div>
 
