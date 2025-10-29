@@ -13,14 +13,14 @@ function App() {
       try {
         const storedToken = localStorage.getItem('token');
         
-        // Basic token validation - check if token exists and has proper format
+        // Basic token validation
         if (storedToken && typeof storedToken === 'string' && storedToken.length > 10) {
           setToken(storedToken);
-          console.log('Token found and set:', storedToken.substring(0, 10) + '...');
+          console.log('Token found and set');
         } else {
           console.log('No valid token found');
           setToken(null);
-          localStorage.removeItem('token'); // Clear invalid token
+          localStorage.removeItem('token');
         }
       } catch (error) {
         console.error('Error checking authentication:', error);
@@ -38,7 +38,7 @@ function App() {
     if (newToken && typeof newToken === 'string') {
       setToken(newToken);
       localStorage.setItem('token', newToken);
-      console.log('Login successful, token stored');
+      console.log('Login successful');
     }
   };
 
@@ -48,7 +48,6 @@ function App() {
     console.log('Logout successful');
   };
 
-  // Show loading spinner while checking authentication
   if (loading) {
     return (
       <div className="loading-container">
@@ -68,7 +67,7 @@ function App() {
               !token ? (
                 <Login onLogin={handleLogin} />
               ) : (
-                <Navigate to="/dashboard" replace />
+                <Navigate to="/dashboard/billing" replace />
               )
             } 
           />
@@ -85,13 +84,8 @@ function App() {
           <Route 
             path="/" 
             element={
-              <Navigate to={token ? "/dashboard" : "/login"} replace />
+              <Navigate to={token ? "/dashboard/billing" : "/login"} replace />
             } 
-          />
-          {/* Fallback route */}
-          <Route 
-            path="*" 
-            element={<Navigate to={token ? "/dashboard" : "/login"} replace />} 
           />
         </Routes>
       </div>
